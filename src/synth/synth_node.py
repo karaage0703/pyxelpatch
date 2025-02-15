@@ -1,11 +1,12 @@
 import pyxel
-from src.base_node import Node, MidiMessage
+from src.base_node import Node
+from src.midi_utils import MidiNode, MidiMessage
 
 
 class SynthNode(Node):
     """シンプルなシンセノード"""
 
-    def __init__(self):
+    def __init__(self, midi_node: MidiNode = None):
         super().__init__(name="SimpleSynth", in_channels=[1])
         # 現在鳴っている音
         self.current_note = None
@@ -14,6 +15,9 @@ class SynthNode(Node):
         self.sound = pyxel.Sound()
         self.sound.set("c3", "t", "7", "n", 10)
         pyxel.sounds[1] = self.sound
+
+        # MIDIノード
+        self.midi_node = midi_node
 
     def on_midi(self, msg: MidiMessage):
         """MIDIメッセージを受信した際の処理"""

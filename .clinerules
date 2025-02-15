@@ -23,7 +23,7 @@
 # PyxelPatch 設計書（日本語）
 
 ## 1. 概要
-**PyxelPatch** は、Python言語とレトロゲームフレームワーク [Pyxel](https://github.com/kitao/pyxel) を用いて構築する、**ノードベースの音楽＆ビジュアルソフトウェア** です。Cycling '74 の **Max** (Max/MSP) に着想を得ており、複数の **ノード**（アプリケーションのコンポーネント）を組み合わせることで音楽や映像生成を行います。ノード間の通信は **MIDI** メッセージをベースに行い、拡張として **OSC** による通信も可能とします。
+**PyxelPatch** は、Python言語とレトロゲームフレームワーク [Pyxel](https://github.com/kitao/pyxel) を用いて構築する、**ノードベースの音楽＆ビジュアルソフトウェア** です。Cycling '74 の **Max** (Max/MSP) に着想を得ており、複数の **ノード**（アプリケーションのコンポーネント）を組み合わせることで音楽や映像生成を行います。各ノードは独立したウィンドウで動作し、ノード間の通信は **MIDI** メッセージをUDPソケットで送受信することで実現します。
 
 大まかな構成は以下のとおりです。
 
@@ -36,24 +36,22 @@
 - **ゲーム (GameNode)**  
   Pyxelを使った簡単なゲーム機能。ユーザ操作やリズムに応じて音楽イベントを発火したり、逆にMIDIノートを受け取ったりする。
 
-これらのノードはそれぞれ独立したディレクトリ（モジュール）として管理され、共通のインターフェース（基底クラス）を実装することで、**ソフトウェアデザインの一貫性** を保ちます。
-
----
+これらのノードはそれぞれ独立したウィンドウとして動作し、UDPソケットを介したMIDIメッセージのやり取りで連携します。各ノードは独立したディレクトリ（モジュール）として管理され、共通のインターフェース（基底クラス）を実装することで、**ソフトウェアデザインの一貫性** を保ちます。
 
 ## 2. アーキテクチャ
 
 ### 2.1 ノードベース構造
-Max と同様に、各ノードは「独立した機能のまとまり」を表します。リズム、シンセ、映像、ゲームなどをそれぞれ個別のフォルダ・スクリプトに分け実装します。
+各ノードは独立したウィンドウとして動作し、それぞれが独自のPyxelアプリケーションとして実装されます。リズム、シンセ、映像、ゲームなどをそれぞれ個別のフォルダ・スクリプトに分け実装します。
 
 1. **RhythmNode**  
    - リズム（ドラムシーケンス）の生成と再生  
-   - 同期信号（MIDIクロック相当）を他ノードに送信してテンポを共有  
-   - テンポを可変にし、UIやMIDI・OSCでBPMを変更可能  
+   - 同期信号（MIDIメッセージ）を他ノードに送信してテンポを共有  
+   - テンポを可変にし、UIやMIDIでBPMを変更可能  
 
 2. **SynthNode**  
    - MIDIノート入力を受けて音を再生する  
    - PyxelのサウンドAPIを用いて合成音を生成  
-   - ボリュームや波形などをMIDI CCやOSCでコントロール可能  
+   - ボリュームや波形などをMIDI CCでコントロール可能  
 
 3. **VideoNode**  
    - MIDIイベントに反応してビジュアル（パーティクルやフラッシュなど）を描画  
@@ -65,479 +63,84 @@ Max と同様に、各ノードは「独立した機能のまとまり」を表�
    - イベント発生時にMIDIノートを生成し、シンセを鳴らしたり、映像を動かしたりできる  
    - ゲームロジック内でリズムやシンセからのイベントを受け、ゲーム難易度や動作を変化させるなども可能  
 
-### 2.2 ノード間通信 (MIDI / OSC)
-- **MIDI**: 各ノードはMIDIメッセージ（Note On, Note Off, CCなど）を受信・発信する。  
-  - 例: リズムマシンがMIDIノートでドラムを鳴らす。シンセはMIDIノートを受け取り音を再生。映像ジェネレータはそのノートに反応してパーティクルを発生 … など  
-  - MIDI Clockやテンポの変更なども扱えるように設計  
+### 2.2 ノード間通信 (UDP MIDI)
+- **MIDI over UDP**: 各ノードはUDPソケットを使用してMIDIメッセージを送受信します。
+  - 例: リズムマシンがMIDIノートでドラムを鳴らす。シンセはMIDIノートを受け取り音を再生。
+  - 各ノードは特定のポート番号でメッセージを待ち受け
+  - JSON形式でMIDIメッセージをシリアライズして送受信
 - **OSC**: 拡張としてネットワーク越しに制御したい場合に用いる。  
   - 例: `/pyxelpatch/rhythm/bpm 130` などのアドレスを受け取ってテンポを変更  
   - MIDIと同様にノード間でのやり取り、あるいは外部ソフトウェア(例: TouchDesigner, Processing)との連携に活用  
-
 ### 2.3 クラス設計 (共通インターフェース)
 以下のような **Node** 基底クラスを定義し、各ノードはこれを継承します。
 
-```mermaid
-classDiagram
-class Node {
-  - enabled : bool
-  - name : str
-  - in_channels : list
-  - output_events : list
-  + set_enabled(bool)
-  + toggle_enabled()
-  + on_midi(msg)
-  + update()
-  + draw()
-}
-
-class RhythmNode {
-  + on_midi(msg)
-  + update()
-  + draw()
-  + set_bpm(bpm)
-}
-
-class SynthNode {
-  + on_midi(msg)
-  + update()
-  + draw()
-  - _midi_to_pyxel_note(note_num)
-}
-
-class VideoNode {
-  + on_midi(msg)
-  + update()
-  + draw()
-}
-
-class GameNode {
-  + on_midi(msg)
-  + update()
-  + draw()
-}
-
-Node <|-- RhythmNode
-Node <|-- SynthNode
-Node <|-- VideoNode
-Node <|-- GameNode
-```
-
-各ノードは `on_midi(msg)`, `update()`, `draw()` を実装し、  
-- **on_midi()**: MIDIメッセージを受け取った際の振る舞いを定義  
-- **update()**: 毎フレーム実行されるメインロジック(リズム進行、ゲーム処理、音声・映像状態の更新など)  
-- **draw()**: Pyxelの描画パイプラインで呼ばれ、ノードが必要とするグラフィックを表示  
-
-有効/無効の切り替え(`enabled`)により、ノードをON/OFFできる。
-
-### 2.4 メインアプリ (Patch Manager)
-メインのスクリプトあるいはクラスが以下を行う：  
-1. Pyxelの初期化 (`pyxel.init()`)  
-2. 各ノード(RhythmNode, SynthNode, VideoNode, GameNode)のインスタンス化  
-3. MIDI/OSC入力の受け取りとノードへの振り分け  
-4. ノードからのMIDI/OSC出力を他ノードや外部へ転送  
-5. `pyxel.run(update, draw)`でゲームループを開始し、各フレームで全ノードの `update()` と `draw()` を呼び出し  
-
-この構成により、**各ノードは実装が独立** しつつ、統一的な手法で互いに連携できる。
-
----
-
-## 3. サンプルコード（Pyxel + Python）
-
-以下、ディレクトリ構成の例：
-
-```
-pyxelpatch/
-  ├── rhythm/
-  │    └── rhythm_node.py
-  ├── synth/
-  │    └── synth_node.py
-  ├── video/
-  │    └── video_node.py
-  ├── game/
-  │    └── game_node.py
-  ├── base_node.py
-  └── main.py
-```
-
-### 3.1 base_node.py
 ```python
-import pyxel
-from collections import namedtuple
-
-# 簡易的なMIDIメッセージ用の namedtuple
-MidiMessage = namedtuple('MidiMessage', ['type', 'note', 'velocity', 'channel', 'control', 'value'])
-
 class Node:
-    """PyxelPatchのすべてのノードが継承する基底クラス。"""
     def __init__(self, name, in_channels=None):
         self.name = name
         self.enabled = True
-        # ノードが受信するMIDIチャンネル一覧 (None or [] は全チャンネル受信の例)
         self.in_channels = in_channels if in_channels else []
-        # このノードが発生させるMIDIイベントの一時キュー
-        self.output_events = []
 
-    def set_enabled(self, state: bool):
-        self.enabled = state
-
-    def toggle_enabled(self):
-        self.enabled = not self.enabled
-
-    def on_midi(self, msg: MidiMessage):
-        """外部または他ノードから来るMIDIイベントを処理。サブクラスでオーバーライド。"""
-        if not self.enabled:
-            return
+    def on_midi(self, msg):
+        """MIDIメッセージを受信した際の処理"""
+        pass
 
     def update(self):
-        """Pyxelのupdate()内で毎フレーム呼ばれる。各ノード固有のロジックを処理。"""
+        """毎フレーム実行されるメインロジック"""
         pass
 
     def draw(self):
-        """Pyxelのdraw()内で毎フレーム呼ばれる。各ノード固有の描画処理。"""
+        """Pyxelの描画処理"""
         pass
 ```
 
-### 3.2 rhythm_node.py
-```python
-from base_node import Node, MidiMessage
-import pyxel
-
-class RhythmNode(Node):
-    """リズムマシン & マスタークロックノード"""
-    def __init__(self, bpm=120, pattern=None):
-        super().__init__(name="RhythmMachine", in_channels=[])
-        self.bpm = bpm
-        # デフォルトのドラムパターン（16ステップ中、キックを4分割に配置）
-        if pattern is None:
-            pattern = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0]
-        self.pattern = pattern
-        self.step = 0
-
-        # PyxelのFPS(既定30)をもとに、1ステップのフレーム数を計算
-        self.frames_per_beat = int((60 / self.bpm) * pyxel.DEFAULT_FPS)
-        self.frame_count = 0
-
-    def on_midi(self, msg: MidiMessage):
-        if not self.enabled:
-            return
-        # 例: CC#7でテンポ変更
-        if msg.type == "control_change" and msg.control == 0x07:
-            new_bpm = 60 + int((msg.value / 127)*120)
-            self.set_bpm(new_bpm)
-
-    def set_bpm(self, bpm):
-        self.bpm = bpm
-        self.frames_per_beat = int((60 / self.bpm) * pyxel.DEFAULT_FPS)
-        self.frame_count = 0
-
-    def update(self):
-        if not self.enabled:
-            return
-        self.frame_count += 1
-        # frames_per_beat に達したら次のステップへ
-        if self.frame_count >= self.frames_per_beat:
-            self.frame_count = 0
-            # パターン上に1があれば、ドラムノートを発生
-            if self.pattern[self.step] == 1:
-                msg = MidiMessage(type="note_on", note=36, velocity=127, channel=10, control=None, value=None)
-                self.output_events.append(msg)
-                # Pyxelでドラム(ノイズ)を再生する例
-                pyxel.sound(0).set(note="c1", tone="N", volume="7", effect="N", speed=7)
-                pyxel.play(0, 0)
-
-            # ステップを進める
-            self.step = (self.step + 1) % len(self.pattern)
-
-    def draw(self):
-        if not self.enabled:
-            return
-        y = pyxel.height - 8
-        step_width = pyxel.width // len(self.pattern)
-        # 現在のステップを可視化
-        for i, val in enumerate(self.pattern):
-            x = i * step_width
-            color = 11 if val == 1 else 5
-            if i == self.step:
-                color = 7 if val == 1 else 6
-            pyxel.rect(x, y, step_width-2, 6, color)
-        pyxel.text(5, pyxel.height-16, f"BPM:{self.bpm}", 7)
+### 2.4 ディレクトリ構成
+```
+pyxelpatch/
+  ├── src/
+  │    ├── base_node.py      # 基底クラス
+  │    ├── midi_utils.py     # MIDI通信ユーティリティ
+  │    ├── rhythm_app.py     # リズムノードアプリ
+  │    ├── synth_app.py      # シンセノードアプリ
+  │    ├── rhythm/
+  │    │    ├── __init__.py
+  │    │    └── rhythm_node.py
+  │    └── synth/
+  │         ├── __init__.py
+  │         └── synth_node.py
+  ├── setup.py
+  └── requirements.txt
 ```
 
-### 3.3 synth_node.py
-```python
-from base_node import Node, MidiMessage
-import pyxel
+## 3. 実行方法
 
-class SynthNode(Node):
-    """シンセノード：ノート受信で音を再生"""
-    def __init__(self):
-        super().__init__(name="Synthesizer", in_channels=[1])
-        self.current_note = None
-        self.tone = "T"      # Triangle波
-        self.volume = "7"    # 音量最大(0-7)
+各ノードは独立したターミナルで実行します：
 
-        # あらかじめsound(1)をシンセ用に設定しておき、ノートに応じて書き換える
-        pyxel.sound(1).set(note="c4", tone=self.tone, volume=self.volume, effect="N", speed=7)
+```bash
+# リズムノード（ポート5000）
+python src/rhythm_app.py
 
-    def on_midi(self, msg: MidiMessage):
-        if not self.enabled:
-            return
-        if msg.type == "note_on" and msg.velocity > 0:
-            self.current_note = msg.note
-            note_str = self._midi_to_pyxel_note(msg.note)
-            pyxel.sound(1).set(note=note_str, tone=self.tone, volume=self.volume, effect="N", speed=7)
-            pyxel.play(1, 1)
-        elif msg.type in ["note_off", "note_on"] and msg.velocity == 0:
-            self.current_note = None
-        elif msg.type == "control_change":
-            if msg.control == 0x07:  # CC#7 = Volume
-                lvl = int((msg.value / 127)*7)
-                self.volume = str(lvl)
-            elif msg.control == 0x01:  # CC#1 = Mod(波形切り替え)
-                self.tone = "P" if msg.value > 64 else "T"
-
-    def _midi_to_pyxel_note(self, note_num):
-        NOTE_NAMES = ['c','c#','d','d#','e','f','f#','g','g#','a','a#','b']
-        octave = note_num // 12 - 1
-        name = NOTE_NAMES[note_num % 12]
-        return f"{name}{octave}"
-
-    def update(self):
-        pass
-
-    def draw(self):
-        if not self.enabled:
-            return
-        if self.current_note is not None:
-            note_str = self._midi_to_pyxel_note(self.current_note)
-            pyxel.text(5, 5, f"Synth Note: {note_str}", 10)
-        else:
-            pyxel.text(5, 5, "Synth: (idle)", 5)
+# シンセノード（ポート5001）
+python src/synth_app.py
 ```
 
-### 3.4 video_node.py
-```python
-from base_node import Node, MidiMessage
-import pyxel, random
+## 4. 操作方法
 
-class VideoNode(Node):
-    """映像ジェネレータノード：MIDIイベントに合わせてビジュアルを描画"""
-    def __init__(self):
-        super().__init__(name="VideoGenerator", in_channels=[1, 10])
-        self.particles = []
-        self.flash_timer = 0
+- リズムノード
+  - スペースキー: リズム開始/停止
+  - 画面下部にパターン表示
 
-    def on_midi(self, msg: MidiMessage):
-        if not self.enabled:
-            return
-        if msg.type == "note_on" and msg.velocity > 0:
-            if msg.channel == 10:
-                # ドラムの場合フラッシュを発生
-                self.flash_timer = 2
-                self.particles.append({
-                    "x": random.randint(0, pyxel.width),
-                    "y": pyxel.height-10,
-                    "color": 8,
-                    "life": 10
-                })
-            elif msg.channel == 1:
-                # シンセノートの場合パーティクル
-                col = 11 + (msg.note % 5)
-                self.particles.append({
-                    "x": random.randint(0, pyxel.width),
-                    "y": random.randint(0, pyxel.height),
-                    "color": col,
-                    "life": 15
-                })
-
-    def update(self):
-        if not self.enabled:
-            return
-        for p in list(self.particles):
-            p["life"] -= 1
-            if p["life"] <= 0:
-                self.particles.remove(p)
-        if self.flash_timer > 0:
-            self.flash_timer -= 1
-
-    def draw(self):
-        if not self.enabled:
-            return
-        # フラッシュ
-        if self.flash_timer > 0:
-            pyxel.cls(7)
-        else:
-            pyxel.rect(0,0, pyxel.width, pyxel.height, 0)
-        # パーティクル描画
-        for p in self.particles:
-            pyxel.circ(p["x"], p["y"], 2, p["color"])
-```
-
-### 3.5 game_node.py
-```python
-from base_node import Node, MidiMessage
-import pyxel
-
-class GameNode(Node):
-    """簡易ゲームノード"""
-    def __init__(self):
-        super().__init__(name="Game", in_channels=[])
-        self.player_x = pyxel.width // 2
-        self.player_y = pyxel.height // 2
-        self.score = 0
-        self.target_x = pyxel.rndi(0, pyxel.width-8)
-        self.target_y = pyxel.rndi(0, pyxel.height-8)
-
-    def update(self):
-        if not self.enabled:
-            return
-        speed = 2
-        if pyxel.btn(pyxel.KEY_LEFT):
-            self.player_x = max(0, self.player_x - speed)
-        if pyxel.btn(pyxel.KEY_RIGHT):
-            self.player_x = min(pyxel.width-8, self.player_x + speed)
-        if pyxel.btn(pyxel.KEY_UP):
-            self.player_y = max(0, self.player_y - speed)
-        if pyxel.btn(pyxel.KEY_DOWN):
-            self.player_y = min(pyxel.height-8, self.player_y + speed)
-
-        # ターゲットとの衝突判定
-        if (self.player_x < self.target_x+8 and self.player_x+8 > self.target_x and
-            self.player_y < self.target_y+8 and self.player_y+8 > self.target_y):
-            self.score += 1
-            # コイン取得などのイベントとしてノートを出力
-            msg = MidiMessage(type="note_on", note=72, velocity=127, channel=1, control=None, value=None)
-            self.output_events.append(msg)
-            self.target_x = pyxel.rndi(0, pyxel.width-8)
-            self.target_y = pyxel.rndi(0, pyxel.height-8)
-
-    def draw(self):
-        if not self.enabled:
-            return
-        pyxel.rect(self.player_x, self.player_y, 8, 8, 11)
-        pyxel.rect(self.target_x, self.target_y, 8, 8, 8)
-        pyxel.text(5, 15, f"Score: {self.score}", 7)
-```
-
-### 3.6 main.py
-```python
-import pyxel
-from base_node import MidiMessage
-from rhythm.rhythm_node import RhythmNode
-from synth.synth_node import SynthNode
-from video.video_node import VideoNode
-from game.game_node import GameNode
-
-# ノードを生成
-rhythm = RhythmNode(bpm=120)
-synth = SynthNode()
-video = VideoNode()
-game = GameNode()
-nodes = [rhythm, synth, video, game]
-
-def update():
-    # (1) キーボード入力をMIDIイベントに見立てるデモ
-    if pyxel.btnp(pyxel.KEY_Z):
-        msg = MidiMessage(type="note_on", note=60, velocity=127, channel=1, control=None, value=None)
-        dispatch_midi(msg)
-    if pyxel.btnp(pyxel.KEY_X):
-        msg = MidiMessage(type="note_off", note=60, velocity=0, channel=1, control=None, value=None)
-        dispatch_midi(msg)
-
-    # ノードのON/OFF切り替え
-    if pyxel.btnp(pyxel.KEY_1):
-        rhythm.toggle_enabled()
-    if pyxel.btnp(pyxel.KEY_2):
-        synth.toggle_enabled()
-    if pyxel.btnp(pyxel.KEY_3):
-        video.toggle_enabled()
-    if pyxel.btnp(pyxel.KEY_4):
-        game.toggle_enabled()
-
-    # BPM上げ下げ
-    if pyxel.btnp(pyxel.KEY_UP):
-        rhythm.set_bpm(min(rhythm.bpm + 5, 200))
-    if pyxel.btnp(pyxel.KEY_DOWN):
-        rhythm.set_bpm(max(rhythm.bpm - 5, 40))
-
-    # (2) 各ノードの update() を呼ぶ
-    for node in nodes:
-        node.update()
-
-    # (3) ノードが発生したMIDIイベントを収集・他ノードへ振り分け
-    events = []
-    for node in nodes:
-        if node.output_events:
-            events.extend(node.output_events)
-            node.output_events.clear()
-    for msg in events:
-        dispatch_midi(msg)
-
-def dispatch_midi(msg):
-    """MIDIイベントをチャンネルに応じて各ノードへ送る"""
-    for node in nodes:
-        # in_channels = [] は「全チャンネル受け取る」という実装も可
-        if (not node.in_channels) or (msg.channel in node.in_channels if msg.channel else True):
-            node.on_midi(msg)
-
-def draw():
-    pyxel.cls(0)
-    # 順番を制御する場合は順不同
-    game.draw()
-    video.draw()
-    rhythm.draw()
-    synth.draw()
-
-def main():
-    pyxel.init(160, 120, title="PyxelPatch", fps=30)
-    pyxel.run(update, draw)
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-## 4. MIDI/OSC 通信仕様
-### 4.1 MIDI
-- **チャンネル割り当て**  
-  - RhythmNode: channel 10 (ドラム/リズム用)
-  - SynthNode: channel 1
-  - VideoNode: channel 1,10（映像は複数チャンネルを受け取る）
-  - GameNode: output channel 1 (ゲーム内イベントでノートを出す)
-
-- **メッセージ種類**  
-  - Note On/Off: ノートの再生／停止  
-  - Control Change(CC#7など): テンポや音量、波形変更などに割当  
-  - [オプション] MIDI Clock: リズムマシンが内部的に生成し、他ノードまたは外部同期用に送信する（実装詳細は省略）  
-
-### 4.2 OSC (拡張)
-- ノードごとに以下のようなアドレス空間を想定：
-  - `/pyxelpatch/rhythm/bpm`, `/pyxelpatch/rhythm/enable`  
-  - `/pyxelpatch/synth/note` (ノート番号, ベロシティ), `/pyxelpatch/synth/volume`, `/pyxelpatch/synth/enable`  
-  - `/pyxelpatch/video/mode`, `/pyxelpatch/video/enable`  
-  - `/pyxelpatch/game/command` など  
-- Pythonの `python-osc` などを使って受信したOSCメッセージをMIDIメッセージに変換または直接ノードのパラメータを変更しても良い。  
-
----
+- シンセノード
+  - Zキー: 音を鳴らす
+  - 画面中央に現在の音程を表示
 
 ## 5. 今後の拡張
-- **高度な音声合成**: Pyxelでは4ch制限のため、複数ノードの同時出力が制限される場合がある。pyaudioやpyo, pygame.mixer等を併用してよりリッチな音声合成が可能。  
-- **ノード増設**: エフェクタ、サンプラー、フィルターなど追加ノードを容易に実装できる拡張性がある。  
-- **ノード間の任意接続**: 本来のMaxのようにGUI上でノードをケーブル接続できる仕組みを構築するとより柔軟になる。  
-- **OSCとの統合**: ネットワーク越しのコントロール、他の映像ソフトとの連携など。  
-- **UIの改善**: 現状Pyxelの簡単なテキスト描画のみ。より洗練されたUIやKnob, FaderなどをPyxel上で可視化したり、MIDIコンの状態をリアルタイムに反映したりできる。  
-- **外部MIDIデバイス対応**: `mido` などで実際のMIDIポートを開き、Korg Nano KEYやBehringer X-Touch miniから直接ノート/CCを受信。  
+- **ノード増設**: エフェクタ、サンプラー、フィルターなど追加ノードを実装
+- **GUI接続管理**: ノード間の接続をGUIで管理できるように
+- **外部MIDI対応**: 実際のMIDIデバイスとの連携
+- **設定ファイル**: ポート番号やMIDIチャンネルの設定をJSON等で管理
 
 ---
 
 # まとめ
-本設計書・サンプルコードは、**Pyxelを用いてMaxライクなノードベース音楽・映像アプリケーションを構築する** ための一例です。ノードごとに独立したディレクトリに配置し、**共通の基底クラス (Node)** を実装、メインループで **update()** と **draw()** を呼び出し、**MIDIメッセージ** を介してノード間でやり取りを行うことで柔軟な拡張性と一貫性を確保しています。
-
-- **プロジェクト名**: PyxelPatch
-- **リポジトリ**: [github.com/karaage0703/pyxelpatch](https://github.com/karaage0703/pyxelpatch)
-- **言語/フレームワーク**: Python, Pyxel
-- **通信**: MIDI（ローカル想定）＋ (オプション)OSC  
-- **ノード例**: RhythmNode（リズム）、SynthNode（シンセ）、VideoNode（映像）、GameNode（ゲーム）  
-
-ここから必要に応じて機能を拡張して、Maxライクなパッチングソフトウェアとして完成度を高めていく方針になります。
+本設計書は、**Pyxelを用いたマルチウィンドウ型の音楽・映像アプリケーション** の実装例です。各ノードを独立したウィンドウとして動作させ、UDPソケットを介したMIDIメッセージで連携することで、柔軟な拡張性と独立性を確保しています。

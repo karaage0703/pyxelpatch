@@ -1,7 +1,4 @@
-from collections import namedtuple
-
-# 簡易的なMIDIメッセージ用の namedtuple
-MidiMessage = namedtuple("MidiMessage", ["type", "note", "velocity", "channel", "control", "value"])
+from src.midi_utils import MidiMessage
 
 
 class Node:
