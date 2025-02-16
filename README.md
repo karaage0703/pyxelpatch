@@ -40,7 +40,6 @@ PyxelPatchは開発者の貢献を歓迎します。以下のドキュメント�
 - [ノード開発ガイド](docs/node_development.md) - 技術仕様と実装方法
 - [実装例](docs/example_nodes.md) - 具体的なノードの実装例
 - [要件定義](docs/requirements_prompt.md) - プロジェクトの要件定義
-- [開発参加ガイド](CONTRIBUTING.md) - プロジェクトへの参加方法
 
 ## ライセンス
 
