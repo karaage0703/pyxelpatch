@@ -80,10 +80,10 @@ pyxelpatch/
   │    │    ├── base_node.py    # 基底クラス
   │    │    └── midi_utils.py   # MIDI通信ユーティリティ
   │    └── nodes/           # ノードモジュール群
-  │         ├── 0001_rhythm/ # リズムノード
+  │         ├── _0001_rhythm/ # リズムノード
   │         │    ├── __init__.py
   │         │    └── rhythm_node.py
-  │         └── 0002_synth/  # シンセノード
+  │         └── _0002_synth/  # シンセノード
   │              ├── __init__.py
   │              └── synth_node.py
   ├── setup.py
