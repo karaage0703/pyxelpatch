@@ -1,6 +1,6 @@
 import pyxel
-from src.base_node import Node
-from src.midi_utils import MidiNode, SYNTH_PORT, RHYTHM_PORT, MidiMessage
+from src.common.base_node import Node
+from src.common.midi_utils import MidiNode, SYNTH_PORT, RHYTHM_PORT, MidiMessage
 
 
 class RhythmNode(Node):

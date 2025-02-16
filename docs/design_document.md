@@ -76,8 +76,9 @@ class Node:
 ```
 pyxelpatch/
   ├── src/
-  │    ├── base_node.py      # 基底クラス
-  │    ├── midi_utils.py     # MIDI通信ユーティリティ
+  │    ├── common/          # 共通ユーティリティ
+  │    │    ├── base_node.py    # 基底クラス
+  │    │    └── midi_utils.py   # MIDI通信ユーティリティ
   │    └── nodes/           # ノードモジュール群
   │         ├── 0001_rhythm/ # リズムノード
   │         │    ├── __init__.py
