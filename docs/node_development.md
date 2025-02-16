@@ -106,12 +106,18 @@ def draw(self):
 class SimpleNode(Node):
     def __init__(self):
         super().__init__(name="SimpleNode", in_channels=[1])
+        # Pyxelの初期化
+        pyxel.init(160, 120, title="Simple Node")
+
         self.value = 0
 
         # サウンド初期化
         self.sound = pyxel.Sound()
         self.sound.set("c3", "t", "7", "n", 10)
         pyxel.sounds[0] = self.sound
+
+        # MIDIノードの初期化
+        self.midi_node = MidiNode(PORT_NUMBER, self.on_midi)
 
     def on_midi(self, msg):
         if not self.enabled:
@@ -122,11 +128,38 @@ class SimpleNode(Node):
             pyxel.play(0, 0)
 
     def update(self):
-        pass
+        # キーボード入力処理
+        if pyxel.btnp(pyxel.KEY_SPACE):
+            self.enabled = not self.enabled
 
     def draw(self):
         pyxel.cls(0)
         pyxel.text(5, 5, f"Value: {self.value}", 7)
+        pyxel.text(5, 15, "SPACE: Toggle Enable", 7)
+
+    def run(self):
+        """アプリケーションの実行"""
+        try:
+            pyxel.run(self.update, self.draw)
+        finally:
+            self.midi_node.close()
+
+
+if __name__ == "__main__":
+    SimpleNode().run()
+```
+
+### ノードの実装手順
+1. `src/nodes/`以下に番号付きのディレクトリを作成（例: `0003_name`）
+2. ノードの実装ファイルとパッケージ初期化ファイルを作成：
+   - `node_name.py`: ノードの実装
+   - `__init__.py`: 相対インポートの設定
+
+### ノードの実行方法
+新しいノードを作成したら、以下のようにモジュールとして実行できます：
+
+```bash
+python -m src.nodes.xxxx_name.node_name
 ```
 
 ## 5. デバッグとテスト

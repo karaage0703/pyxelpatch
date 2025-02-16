@@ -78,14 +78,13 @@ pyxelpatch/
   ├── src/
   │    ├── base_node.py      # 基底クラス
   │    ├── midi_utils.py     # MIDI通信ユーティリティ
-  │    ├── rhythm_app.py     # リズムノードアプリ
-  │    ├── synth_app.py      # シンセノードアプリ
-  │    ├── rhythm/
-  │    │    ├── __init__.py
-  │    │    └── rhythm_node.py
-  │    └── synth/
-  │         ├── __init__.py
-  │         └── synth_node.py
+  │    └── nodes/           # ノードモジュール群
+  │         ├── 0001_rhythm/ # リズムノード
+  │         │    ├── __init__.py
+  │         │    └── rhythm_node.py
+  │         └── 0002_synth/  # シンセノード
+  │              ├── __init__.py
+  │              └── synth_node.py
   ├── setup.py
   └── requirements.txt
 ```
@@ -96,10 +95,10 @@ pyxelpatch/
 
 ```bash
 # リズムノード（ポート5000）
-python src/rhythm_app.py
+python -m src.nodes.0001_rhythm.rhythm_node
 
 # シンセノード（ポート5001）
-python src/synth_app.py
+python -m src.nodes.0002_synth.synth_node
 ```
 
 ## 4. 操作方法
