@@ -150,16 +150,18 @@ if __name__ == "__main__":
 ```
 
 ### ノードの実装手順
-1. `src/nodes/`以下に番号付きのディレクトリを作成（例: `0003_name`）
+1. `src/nodes/`以下に番号付きのディレクトリを作成（例: `_0003_name`）
 2. ノードの実装ファイルとパッケージ初期化ファイルを作成：
    - `node_name.py`: ノードの実装
    - `__init__.py`: 相対インポートの設定
+   - `README`: マニュアル等
+
 
 ### ノードの実行方法
 新しいノードを作成したら、以下のようにモジュールとして実行できます：
 
 ```bash
-python -m src.nodes.xxxx_name.node_name
+python -m src.nodes._xxxx_name.node_name
 ```
 
 ## 5. デバッグとテスト
