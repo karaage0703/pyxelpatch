@@ -1,4 +1,4 @@
-from src.midi_utils import MidiMessage
+from src.common.midi_utils import MidiMessage
 
 
 class Node:
