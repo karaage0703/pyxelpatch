@@ -46,33 +46,6 @@ class AdvancedRhythmNode(Node):
         self.running = False
         self.step = 0
 
-        # パターンバンク（各ドラム音ごとに複数のパターンを保持）
-        self.pattern_banks = {
-            "kick": [
-                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],  # 基本的な4つ打ち
-                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0],  # 変化系1
-                [1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0],  # 変化系2
-            ],
-            "snare": [
-                [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],  # 基本的な裏打ち
-                [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0],  # 変化系1
-                [0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0],  # 変化系2
-            ],
-            "hihat": [
-                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # 基本的な16ビート
-                [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],  # 8ビート
-                [1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],  # 変化系
-            ],
-            "clap": [
-                [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],  # 基本的な裏打ち
-                [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],  # 変化系1
-                [0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1],  # 変化系2
-            ],
-        }
-
-        # 現在のパターン番号
-        self.current_pattern = {name: 0 for name in self.drums.keys()}
-
         # MIDIノードの初期化
         self.midi_node = MidiNode(ADVANCED_RHYTHM_PORT, self.on_midi)
 
@@ -144,7 +117,7 @@ class AdvancedRhythmNode(Node):
             if pyxel.btnp(key):
                 self._toggle_mute(list(self.drums.keys())[i])
 
-        # マウスクリックでパターン切り替え
+        # マウスクリックでパターンのON/OFF切り替え
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             # クリックされた位置を確認
             for i, (name, drum) in enumerate(self.drums.items()):
@@ -153,7 +126,7 @@ class AdvancedRhythmNode(Node):
                     # パターン領域内でのクリックを確認
                     pattern_x = (pyxel.mouse_x - 60) // 10
                     if 0 <= pattern_x < 16:
-                        self._cycle_pattern(name)
+                        self._toggle_step(name, pattern_x)
 
     def draw(self):
         """パターンの可視化"""
@@ -187,8 +160,7 @@ class AdvancedRhythmNode(Node):
             pyxel.text(5, base_y + i * 30, f"{drum.name}", color)
 
             # パターン表示
-            pattern = self.pattern_banks[name][self.current_pattern[name]]
-            for j, val in enumerate(pattern):
+            for j, val in enumerate(drum.pattern):
                 x = 60 + j * 10
                 y = base_y + i * 30
                 color = 5 if val == 0 else (13 if drum.muted else 7)
@@ -196,13 +168,10 @@ class AdvancedRhythmNode(Node):
                     color = 8 if val == 1 else 2  # 現在のステップは赤/暗赤
                 pyxel.rect(x, y, 8, 8, color)
 
-            # パターン番号を表示
-            pyxel.text(220, base_y + i * 30, f"P{self.current_pattern[name] + 1}", 6)
-
         # 操作説明
         pyxel.text(5, 160, "SPACE: Toggle Rhythm", 13)
         pyxel.text(5, 170, "1-4: Toggle Mute", 13)
-        pyxel.text(120, 170, "CLICK: Change Pattern", 13)
+        pyxel.text(120, 170, "CLICK: Toggle Step", 13)
 
     def on_midi(self, msg: MidiMessage):
         """MIDIメッセージを受信した際の処理"""
@@ -234,8 +203,7 @@ class AdvancedRhythmNode(Node):
             if drum.muted:
                 continue
 
-            pattern = self.pattern_banks[name][self.current_pattern[name]]
-            if pattern[self.step] == 1:
+            if drum.pattern[self.step] == 1:
                 # ドラム音を再生
                 pyxel.play(drum.sound_id, drum.sound_id)
 
@@ -244,10 +212,10 @@ class AdvancedRhythmNode(Node):
         if drum_name in self.drums:
             self.drums[drum_name].muted = not self.drums[drum_name].muted
 
-    def _cycle_pattern(self, drum_name: str):
-        """指定したドラム音の次のパターンに切り替え"""
-        if drum_name in self.pattern_banks:
-            self.current_pattern[drum_name] = (self.current_pattern[drum_name] + 1) % len(self.pattern_banks[drum_name])
+    def _toggle_step(self, drum_name: str, step: int):
+        """指定したドラム音の指定ステップのON/OFFを切り替え"""
+        if drum_name in self.drums:
+            self.drums[drum_name].pattern[step] = 1 - self.drums[drum_name].pattern[step]  # 0 -> 1, 1 -> 0
 
     def run(self):
         """アプリケーションの実行"""
