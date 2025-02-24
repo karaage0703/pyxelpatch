@@ -2,13 +2,7 @@ import pyxel
 from dataclasses import dataclass
 from typing import Dict, List
 from src.common.base_node import Node
-from src.common.midi_utils import (
-    MidiNode,
-    MidiMessage,
-    MIDI_CLOCK,
-    MIDI_START,
-    MIDI_STOP,
-)
+from src.common.midi_utils import MidiMessage
 
 
 @dataclass
@@ -32,21 +26,13 @@ class AdvancedRhythmNode(Node):
     """
 
     def __init__(self):
-        super().__init__(name="AdvancedRhythm")
-        # Pyxelの初期化
-        pyxel.init(240, 180, title="Advanced Rhythm Node")
-
+        super().__init__(name="AdvancedRhythm", window_size=(240, 180))
         # ドラム音の初期化
         self._init_drum_sounds()
-
-        # 同期関連
-        self.synced = False
-        self.ppq_count = 0  # Pulses Per Quarter note カウンタ
-        self.running = False
         self.step = 0
 
-        # MIDIノードの初期化
-        self.midi_node = MidiNode("advanced_rhythm", self.on_midi)
+        # マウス操作を有効化
+        pyxel.mouse(True)
 
     def _init_drum_sounds(self):
         """ドラム音の初期化"""
@@ -129,27 +115,7 @@ class AdvancedRhythmNode(Node):
 
     def draw(self):
         """パターンの可視化"""
-        pyxel.cls(0)
-
-        if not self.enabled:
-            return
-
-        # 状態表示
-        status = []
-        if not self.synced:
-            status.append("WAITING FOR SYNC")
-        elif not self.running:
-            status.append("STOPPED")
-        elif not self.enabled:
-            status.append("DISABLED")
-        else:
-            status.append("RUNNING")
-
-        status_text = " | ".join(status)
-        pyxel.text(5, 5, status_text, 7)
-
-        # PPQカウント表示（デバッグ用）
-        pyxel.text(5, 15, f"PPQ: {self.ppq_count}", 7)
+        super().draw()  # 基本的な状態表示
 
         # 各ドラム音のパターンを表示
         base_y = 40
@@ -174,27 +140,22 @@ class AdvancedRhythmNode(Node):
 
     def on_midi(self, msg: MidiMessage):
         """MIDIメッセージを受信した際の処理"""
+        super().on_midi(msg)  # 基本的なMIDI処理
+
         if not self.enabled:
             return
 
-        if msg.type == MIDI_CLOCK:
-            self.synced = True
-            self.ppq_count = (self.ppq_count + 1) % 24
+        # 6PPQごと（16分音符）にステップを進める
+        if msg.type == "clock" and self.running and self.ppq_count % 6 == 0:
+            # 次のステップへ
+            self.step = (self.step + 1) % 16
+            # 新しいステップの音を処理
+            self._process_step()
 
-            # 6PPQごと（16分音符）にステップを進める
-            if self.running and self.ppq_count % 6 == 0:
-                self._process_step()
-                # 次のステップへ
-                self.step = (self.step + 1) % 16
-
-        elif msg.type == MIDI_START:
-            self.running = True
-            self.ppq_count = 0
+        elif msg.type == "start":
             self.step = 0
-
-        elif msg.type == MIDI_STOP:
-            self.running = False
-            self.ppq_count = 0
+            # 最初のステップの音を処理
+            self._process_step()
 
     def _process_step(self):
         """現在のステップの音を処理"""
@@ -215,15 +176,6 @@ class AdvancedRhythmNode(Node):
         """指定したドラム音の指定ステップのON/OFFを切り替え"""
         if drum_name in self.drums:
             self.drums[drum_name].pattern[step] = 1 - self.drums[drum_name].pattern[step]  # 0 -> 1, 1 -> 0
-
-    def run(self):
-        """アプリケーションの実行"""
-        try:
-            pyxel.mouse(True)  # マウス操作を有効化
-            pyxel.run(self.update, self.draw)
-        finally:
-            # 終了時にMIDIノードをクローズ
-            self.midi_node.close()
 
 
 if __name__ == "__main__":

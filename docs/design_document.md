@@ -49,78 +49,59 @@
    - イベント発生時にMIDIノートを生成し、シンセを鳴らしたり、映像を動かしたりできる  
    - ゲームロジック内でリズムやシンセからのイベントを受け、ゲーム難易度や動作を変化させるなども可能  
 
-### 2.2 ノード間通信 (UDP MIDI)
-- **MIDI over UDP**: 各ノードはUDPソケットを使用してMIDIメッセージを送受信します。
-  - 例: リズムマシンがMIDIノートでドラムを鳴らす。シンセはMIDIノートを受け取り音を再生。
-  - 各ノードは特定のポート番号でメッセージを待ち受け
-  - JSON形式でMIDIメッセージをシリアライズして送受信
-- **同期メッセージ**: リズムジェネレータは以下の同期信号を送信
-  - MIDIクロック（24 PPQN）
-  - 拍子位置（1小節の開始）
-  - テンポ変更通知
-- **OSC**: 拡張としてネットワーク越しに制御したい場合に用いる。  
-  - 例: `/pyxelpatch/rhythm/bpm 130` などのアドレスを受け取ってテンポを変更  
-  - MIDIと同様にノード間でのやり取り、あるいは外部ソフトウェア(例: TouchDesigner, Processing)との連携に活用  
+### 2.2 ノード間通信と同期システム
 
-### 2.3 クラス設計 (共通インターフェース)
-以下のような **Node** 基底クラスを定義し、各ノードはこれを継承します。
+#### 2.2.1 MIDI over UDP
+各ノードはUDPソケットを使用してMIDIメッセージを送受信します：
+- **メッセージ形式**: JSON形式でシリアライズ
+- **通信方式**: ブロードキャスト（全ノードに配信）
+- **ポート**: 共通のポート番号で待ち受け
+- **例**: リズムマシンがMIDIノートでドラムを鳴らし、シンセがそれを受け取って音を再生
 
-```python
-class Node:
-    def __init__(self, name, in_channels=None):
-        self.name = name
-        self.enabled = True
-        self.in_channels = in_channels if in_channels else []
+#### 2.2.2 同期システム
+リズムジェネレータを中心とした高精度な同期システムを実装：
 
-    def on_midi(self, msg):
-        """MIDIメッセージを受信した際の処理"""
-        pass
+1. **PPQ (Pulses Per Quarter Note)**
+   - 4分音符を24分割する標準的なMIDI同期方式
+   - 例：120 BPMの場合
+     - 1拍（4分音符）= 0.5秒
+     - 1パルス = 約0.021秒（0.5秒÷24）
+     - 16分音符 = 6パルス
 
-    def update(self):
-        """毎フレーム実行されるメインロジック"""
-        pass
+2. **タイミング制御**
+   - 理想的なタイミングを基準に次のクロックを生成
+   - フレーム処理の遅延による誤差を防止
+   - BPM変更時は適切にタイミングをリセット
 
-    def draw(self):
-        """Pyxelの描画処理"""
-        pass
+3. **同期メッセージ**
+   - `clock`: PPQパルス（24 PPQN）
+   - `start`: シーケンス開始
+   - `stop`: シーケンス停止
+   - テンポ変更通知
 
-class SyncNode(Node):
-    """同期機能を持つノード用の基底クラス"""
-    def __init__(self, name, in_channels=None):
-        super().__init__(name, in_channels)
-        self.synced = False
-        self.last_clock = 0
-        self.ppq_count = 0  # Pulses Per Quarter note カウンタ
+4. **同期状態管理**
+   - 各ノードは同期状態（synced）を監視
+   - PPQカウントを追跡
+   - 実行状態（running）を管理
 
-    def on_clock(self, timestamp):
-        """MIDIクロックを受信した際の処理"""
-        self.last_clock = timestamp
-        self.ppq_count = (self.ppq_count + 1) % 24
-        if self.ppq_count == 0:
-            self.on_quarter_note()
+#### 2.2.3 OSC拡張
+ネットワーク越しの制御のために実装予定：
+- 例: `/pyxelpatch/rhythm/bpm 130` でテンポ変更
+- 外部ソフトウェア（TouchDesigner, Processing）との連携
 
-    def on_quarter_note(self):
-        """4分音符のタイミングで呼ばれる"""
-        pass
-```
-
-### 2.4 ディレクトリ構成
+### 2.3 ディレクトリ構成
 ```
 pyxelpatch/
   ├── src/
   │    ├── common/          # 共通ユーティリティ
   │    │    ├── base_node.py    # 基底クラス
-  │    │    └── midi_utils.py   # MIDI通信ユーティリティ
+  │    │    ├── midi_utils.py   # MIDI通信ユーティリティ
+  │    │    └── README.md       # 共通機能の説明
   │    └── nodes/           # ノードモジュール群
   │         ├── _0000_rhythm_gen/ # リズムジェネレータ
-  │         │    ├── __init__.py
-  │         │    └── rhythm_generator_node.py
-  │         ├── _0001_rhythm/ # リズムノード
-  │         │    ├── __init__.py
-  │         │    └── rhythm_node.py
-  │         └── _0002_synth/  # シンセノード
-  │              ├── __init__.py
-  │              └── synth_node.py
+  │         ├── _0001_rhythm/     # リズムノード
+  │         ├── _0002_synth/      # シンセノード
+  │         └── その他のノード     # 同様の構成
   ├── setup.py
   └── requirements.txt
 ```

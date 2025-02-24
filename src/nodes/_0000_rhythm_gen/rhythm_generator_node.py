@@ -1,13 +1,7 @@
 import time
 import pyxel
 from src.common.base_node import Node
-from src.common.midi_utils import (
-    MidiMessage,
-    MidiNode,
-    MIDI_CLOCK,
-    MIDI_START,
-    MIDI_STOP,
-)
+from src.common.midi_utils import MidiMessage
 
 
 class RhythmGeneratorNode(Node):
@@ -19,27 +13,22 @@ class RhythmGeneratorNode(Node):
     def __init__(self):
         super().__init__("RhythmGenerator")
 
-        # MIDI通信
-        self.midi = MidiNode("rhythm_generator", self.on_midi)
-
         # テンポ管理
         self.bpm = 120
         self.running = False
-        self.ppq_count = 0  # Pulses Per Quarter note カウンタ
 
         # タイミング管理
         self.last_clock = 0
         self.clock_interval = self._calculate_clock_interval()
         self.accumulated_time = 0
 
-        # Pyxel初期化
-        pyxel.init(160, 120, title="Rhythm Generator")
-        pyxel.mouse(True)  # マウス操作を有効化
-
         # UI状態
         self.dragging = False
         self.drag_start_y = 0
         self.drag_start_bpm = 0
+
+        # マウス操作を有効化
+        pyxel.mouse(True)
 
     def _calculate_clock_interval(self) -> float:
         """現在のBPMからMIDIクロック間隔を計算"""
@@ -60,8 +49,14 @@ class RhythmGeneratorNode(Node):
                 # マウスのY座標の変化からBPMを調整（上下反転）
                 delta_y = self.drag_start_y - pyxel.mouse_y
                 new_bpm = self.drag_start_bpm + delta_y
-                self.bpm = max(40, min(240, new_bpm))  # BPMを40-240の範囲に制限
-                self.clock_interval = self._calculate_clock_interval()
+                new_bpm = max(40, min(240, new_bpm))  # BPMを40-240の範囲に制限
+
+                # BPMが変更された場合のみタイミングをリセット
+                if new_bpm != self.bpm:
+                    self.bpm = new_bpm
+                    self.clock_interval = self._calculate_clock_interval()
+                    # タイミング関連の状態をリセット
+                    self.last_clock = time.time()
         else:
             self.dragging = False
 
@@ -75,29 +70,20 @@ class RhythmGeneratorNode(Node):
         # クロック信号の生成
         if self.running:
             current_time = time.time()
-            elapsed = current_time - self.last_clock
-            self.accumulated_time += elapsed
+            expected_time = self.last_clock + self.clock_interval
 
-            # 累積時間がクロック間隔を超えた場合にクロックを送信
-            while self.accumulated_time >= self.clock_interval:
+            # 次のクロックタイミングに達したか確認
+            if current_time >= expected_time:
                 self.send_clock()
-                self.accumulated_time -= self.clock_interval
-
-            self.last_clock = current_time
+                # 次の期待時刻を設定（現在時刻ではなく理想的なタイミングから計算）
+                self.last_clock = expected_time
 
     def draw(self):
         """毎フレーム実行される描画処理"""
-        pyxel.cls(0)
+        super().draw()  # 基本的な状態表示
 
         # 現在のBPMを表示
-        pyxel.text(10, 10, f"BPM: {self.bpm:.1f}", 7)
-
-        # 再生状態を表示
-        status = "RUNNING" if self.running else "STOPPED"
-        pyxel.text(10, 20, f"Status: {status}", 7)
-
-        # PPQカウント表示（デバッグ用）
-        pyxel.text(10, 30, f"PPQ: {self.ppq_count}", 7)
+        pyxel.text(10, 30, f"BPM: {self.bpm:.1f}", 7)
 
         # クロック間隔を表示（デバッグ用）
         pyxel.text(10, 40, f"Interval: {self.clock_interval * 1000:.1f}ms", 7)
@@ -108,8 +94,8 @@ class RhythmGeneratorNode(Node):
 
     def send_clock(self):
         """MIDIクロック信号を送信"""
-        msg = MidiMessage(type=MIDI_CLOCK)
-        self.midi.send_message(msg)
+        msg = MidiMessage(type="clock")
+        self.midi_node.send_message(msg)
 
         # PPQカウントを更新
         self.ppq_count = (self.ppq_count + 1) % 24
@@ -120,8 +106,8 @@ class RhythmGeneratorNode(Node):
         self.last_clock = time.time()
         self.accumulated_time = 0
         # 開始信号を送信
-        msg = MidiMessage(type=MIDI_START)
-        self.midi.send_message(msg)
+        msg = MidiMessage(type="start")
+        self.midi_node.send_message(msg)
 
     def stop(self):
         """再生を停止"""
@@ -129,8 +115,8 @@ class RhythmGeneratorNode(Node):
         self.ppq_count = 0
         self.accumulated_time = 0
         # 停止信号を送信
-        msg = MidiMessage(type=MIDI_STOP)
-        self.midi.send_message(msg)
+        msg = MidiMessage(type="stop")
+        self.midi_node.send_message(msg)
 
     def on_midi(self, msg: MidiMessage):
         """MIDIメッセージを受信した際の処理"""
@@ -139,5 +125,4 @@ class RhythmGeneratorNode(Node):
 
 
 if __name__ == "__main__":
-    node = RhythmGeneratorNode()
-    pyxel.run(node.update, node.draw)
+    RhythmGeneratorNode().run()

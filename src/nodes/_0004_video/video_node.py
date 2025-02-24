@@ -1,16 +1,10 @@
 import random
 import math
 import pyxel
-from typing import List, Tuple
+from typing import List
 
 from src.common.base_node import Node
-from src.common.midi_utils import (
-    MidiNode,
-    MidiMessage,
-    MIDI_CLOCK,
-    MIDI_START,
-    MIDI_STOP,
-)
+from src.common.midi_utils import MidiMessage
 
 
 class Particle:
@@ -46,9 +40,6 @@ class VideoNode(Node):
     def __init__(self):
         super().__init__(name="VideoNode")
 
-        # Pyxelの初期化
-        pyxel.init(160, 120, title="PyxelPatch - Video Node")
-
         # パーティクル管理
         self.particles: List[Particle] = []
 
@@ -58,37 +49,19 @@ class VideoNode(Node):
         self.base_color = 1  # 基本色（0-15）
 
         # 画面中央座標
-        self.center_x = pyxel.width // 2
-        self.center_y = pyxel.height // 2
-
-        # 同期関連
-        self.synced = False
-        self.ppq_count = 0  # Pulses Per Quarter note カウンタ
-        self.running = False
-
-        # MIDIノードの初期化
-        self.midi_node = MidiNode("video", self.on_midi)
+        self.center_x = self.window_width // 2
+        self.center_y = self.window_height // 2
 
     def on_midi(self, msg: MidiMessage):
         """MIDIメッセージを受信した際の処理"""
+        super().on_midi(msg)  # 基本的なMIDI処理
+
         if not self.enabled:
             return
 
-        if msg.type == MIDI_CLOCK:
-            self.synced = True
-            self.ppq_count = (self.ppq_count + 1) % 24
-
-            # 24PPQで4分音符
-            if self.running and self.ppq_count == 0:
-                self.on_quarter_note()
-
-        elif msg.type == MIDI_START:
-            self.running = True
-            self.ppq_count = 0
-
-        elif msg.type == MIDI_STOP:
-            self.running = False
-            self.ppq_count = 0
+        # 24PPQで4分音符
+        if msg.type == "clock" and self.running and self.ppq_count == 0:
+            self.on_quarter_note()
 
         elif msg.type == "note_on":
             # ノートオンでパーティクル生成
@@ -142,8 +115,7 @@ class VideoNode(Node):
 
     def draw(self):
         """Pyxelの描画処理"""
-        # 画面クリア
-        pyxel.cls(0)
+        super().draw()  # 基本的な状態表示
 
         # 背景の円を描画（拍の進行に合わせて拡大縮小）
         radius = 20 + math.sin(self.beat_progress * math.pi * 2) * 5
@@ -160,33 +132,8 @@ class VideoNode(Node):
             pyxel.circb(self.center_x, self.center_y, size, flash_color)
             pyxel.circb(self.center_x, self.center_y, size + 1, flash_color)
 
-        # 状態表示
-        status = []
-        if not self.synced:
-            status.append("WAITING FOR SYNC")
-        elif not self.running:
-            status.append("STOPPED")
-        elif not self.enabled:
-            status.append("DISABLED")
-        else:
-            status.append("RUNNING")
-
-        status_text = " | ".join(status)
-        pyxel.text(5, 5, status_text, 7)
-
-        # PPQカウント表示（デバッグ用）
-        pyxel.text(5, 15, f"PPQ: {self.ppq_count}", 7)
-
         # 操作説明
         pyxel.text(5, 100, "SPACE: Toggle Visual", 7)
-
-    def run(self):
-        """アプリケーションの実行"""
-        try:
-            pyxel.run(self.update, self.draw)
-        finally:
-            # 終了時にMIDIノードをクローズ
-            self.midi_node.close()
 
 
 if __name__ == "__main__":
