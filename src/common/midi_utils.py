@@ -71,5 +71,13 @@ class MidiNode:
 
 
 # ポート番号の定義
-RHYTHM_PORT = 5000
-SYNTH_PORT = 5001
+RHYTHM_GEN_PORT = 5000  # リズムジェネレータ（マスタークロック）
+RHYTHM_PORT = 5001  # リズムマシン
+SYNTH_PORT = 5002  # シンセサイザー
+
+# MIDIメッセージタイプ
+MIDI_CLOCK = "clock"  # MIDIクロック信号
+MIDI_START = "start"  # 再生開始
+MIDI_STOP = "stop"  # 再生停止
+MIDI_CONTINUE = "continue"  # 再生再開
+MIDI_SONG_POSITION = "song_position"  # 曲位置
