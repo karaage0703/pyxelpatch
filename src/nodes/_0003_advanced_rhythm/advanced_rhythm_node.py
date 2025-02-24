@@ -4,7 +4,6 @@ from typing import Dict, List
 from src.common.base_node import Node
 from src.common.midi_utils import (
     MidiNode,
-    ADVANCED_RHYTHM_PORT,
     MidiMessage,
     MIDI_CLOCK,
     MIDI_START,
@@ -47,7 +46,7 @@ class AdvancedRhythmNode(Node):
         self.step = 0
 
         # MIDIノードの初期化
-        self.midi_node = MidiNode(ADVANCED_RHYTHM_PORT, self.on_midi)
+        self.midi_node = MidiNode("advanced_rhythm", self.on_midi)
 
     def _init_drum_sounds(self):
         """ドラム音の初期化"""

@@ -2,7 +2,6 @@ import pyxel
 from src.common.base_node import Node
 from src.common.midi_utils import (
     MidiNode,
-    RHYTHM_PORT,
     MidiMessage,
     MIDI_CLOCK,
     MIDI_START,
@@ -35,7 +34,7 @@ class RhythmNode(Node):
         pyxel.sounds[0] = self.sound
 
         # MIDIノードの初期化
-        self.midi_node = MidiNode(RHYTHM_PORT, self.on_midi)
+        self.midi_node = MidiNode("rhythm", self.on_midi)
 
     def update(self):
         """毎フレーム実行されるメインロジック"""
