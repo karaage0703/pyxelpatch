@@ -2,7 +2,6 @@ import pyxel
 from src.common.base_node import Node
 from src.common.midi_utils import (
     MidiNode,
-    SYNTH_PORT,
     MidiMessage,
     MIDI_CLOCK,
     MIDI_START,
@@ -34,7 +33,7 @@ class SynthNode(Node):
         pyxel.sounds[1] = self.sound
 
         # MIDIノードの初期化
-        self.midi_node = MidiNode(SYNTH_PORT, self.on_midi)
+        self.midi_node = MidiNode("synth", self.on_midi)
 
     def on_midi(self, msg: MidiMessage):
         """MIDIメッセージを受信した際の処理"""

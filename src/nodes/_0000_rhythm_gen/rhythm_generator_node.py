@@ -4,10 +4,6 @@ from src.common.base_node import Node
 from src.common.midi_utils import (
     MidiMessage,
     MidiNode,
-    RHYTHM_GEN_PORT,
-    RHYTHM_PORT,
-    ADVANCED_RHYTHM_PORT,
-    SYNTH_PORT,
     MIDI_CLOCK,
     MIDI_START,
     MIDI_STOP,
@@ -24,9 +20,7 @@ class RhythmGeneratorNode(Node):
         super().__init__("RhythmGenerator")
 
         # MIDI通信
-        self.midi = MidiNode(RHYTHM_GEN_PORT, self.on_midi)
-        # 同期信号の送信先
-        self.sync_ports = [RHYTHM_PORT, ADVANCED_RHYTHM_PORT, SYNTH_PORT]
+        self.midi = MidiNode("rhythm_generator", self.on_midi)
 
         # テンポ管理
         self.bpm = 120
@@ -115,8 +109,7 @@ class RhythmGeneratorNode(Node):
     def send_clock(self):
         """MIDIクロック信号を送信"""
         msg = MidiMessage(type=MIDI_CLOCK)
-        for port in self.sync_ports:
-            self.midi.send_message(msg, port)
+        self.midi.send_message(msg)
 
         # PPQカウントを更新
         self.ppq_count = (self.ppq_count + 1) % 24
@@ -128,8 +121,7 @@ class RhythmGeneratorNode(Node):
         self.accumulated_time = 0
         # 開始信号を送信
         msg = MidiMessage(type=MIDI_START)
-        for port in self.sync_ports:
-            self.midi.send_message(msg, port)
+        self.midi.send_message(msg)
 
     def stop(self):
         """再生を停止"""
@@ -138,8 +130,7 @@ class RhythmGeneratorNode(Node):
         self.accumulated_time = 0
         # 停止信号を送信
         msg = MidiMessage(type=MIDI_STOP)
-        for port in self.sync_ports:
-            self.midi.send_message(msg, port)
+        self.midi.send_message(msg)
 
     def on_midi(self, msg: MidiMessage):
         """MIDIメッセージを受信した際の処理"""
