@@ -1,6 +1,6 @@
 # PyxelPatch
 
-PyxelPatchは、Python言語とレトロゲームフレームワーク[Pyxel](https://github.com/kitao/pyxel)を用いて構築する、ノードベースの音楽＆ビジュアルソフトウェアです。Cycling '74のMax (Max/MSP)に着想を得ており、複数のノード（アプリケーションのコンポーネント）を組み合わせることで音楽や映像生成を行います。
+PyxelPatchは、Python言語とレトロゲームフレームワーク[Pyxel](https://github.com/kitao/pyxel)を用いて構築する、ノードベースの音楽＆ビジュアルソフトウェアです。複数のノード（アプリケーションのコンポーネント）を組み合わせることで音楽や映像生成を行います。
 
 ## 特徴
 
@@ -31,15 +31,6 @@ pip install -e .
 - OSCによる外部ソフトウェアとの連携
 - GUI接続管理システム
 - 外部MIDIデバイス対応
-
-## 開発者向けドキュメント
-
-PyxelPatchは開発者の貢献を歓迎します。以下のドキュメントを参照してください：
-
-- [設計書](docs/design_document.md) - システム全体の設計と構成
-- [ノード開発ガイド](docs/node_development.md) - 技術仕様と実装方法
-- [実装例](docs/example_nodes.md) - 具体的なノードの実装例
-- [要件定義](docs/requirements_prompt.md) - プロジェクトの要件定義
 
 ## ライセンス
 

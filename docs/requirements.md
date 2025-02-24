@@ -9,17 +9,26 @@
    - 基本: **MIDI**  
    - 拡張: **OSC**(ネットワーク越し通信対応)  
 6. **ノード例**:  
+   - **リズムジェネレータ (RhythmGeneratorNode)**
+     - システム唯一のマスタークロック
+     - 同期信号（MIDIクロック）の生成と配信
+     - テンポ（BPM）管理
    - **リズムマシン (RhythmNode)**  
+     - リズムジェネレータに同期
+     - ドラムパターンの生成と再生
    - **シンセ (SynthNode)**  
    - **映像ジェネレータ (VideoNode)**  
    - **ゲーム (GameNode)**  
-7. **リズムマシンがマスタークロック**（BPM管理）となり、他ノードを同期  
+7. **同期システム**
+   - リズムジェネレータがマスタークロック（BPM管理）
+   - MIDIクロック（24 PPQN）による正確な同期
+   - 他のノードはリズムジェネレータに同期
 8. **ノード**は入力（キーボード/MIDI/センサーなど）と出力（音声/映像/MIDI/OSC）を持ち、**ON/OFF** 切り替え可能  
 9. **推奨デバイス**: MIDIキーボード（例: Korg NanoKey）、Behringer X-Touch mini など  
 10. **必須セクション・項目**:  
     1. **概要説明** (PyxelPatchのコンセプト、Maxライクなノードベース構成)  
     2. **システムアーキテクチャ** (ノード概念、MIDI/OSC通信、共通基底クラスなど)  
-    3. **ノード単位の詳細** (Rhythm, Synth, Video, Game の実装方針)  
+    3. **ノード単位の詳細** (RhythmGenerator, Rhythm, Synth, Video, Game の実装方針)  
     4. **ディレクトリ構成例 + サンプルコード**  
     5. **MIDI/OSC通信仕様** (メッセージ内容、チャンネル割当、OSCアドレス例)  
     6. **今後の拡張アイデア** (Pyxelの4ch制限対応、UI拡充など)
@@ -30,8 +39,9 @@
 - **日本語** で書かれた **Markdown形式** のドキュメント  
 - 適宜、**見出し・リスト・コードブロック** を用いて構造化  
 - **サンプルコード**はPythonで、Pyxelの機能（音声・描画）を活用  
-  - RhythmNode, SynthNode, VideoNode, GameNode + 共通基底クラス Node  
+  - RhythmGeneratorNode, RhythmNode, SynthNode, VideoNode, GameNode + 共通基底クラス Node  
   - ノード間通信にMIDIメッセージ (Note On/Off, CC など) を活用する例を示す  
+  - 同期用の基底クラス SyncNode の実装例を含める
 
 
 ## 3. ゴール
