@@ -10,7 +10,6 @@ from src.common.midi_utils import (
     MIDI_CLOCK,
     MIDI_START,
     MIDI_STOP,
-    MIDI_CONTINUE,
 )
 
 
