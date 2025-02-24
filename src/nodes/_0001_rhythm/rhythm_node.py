@@ -2,7 +2,6 @@ import pyxel
 from src.common.base_node import Node
 from src.common.midi_utils import (
     MidiNode,
-    SYNTH_PORT,
     RHYTHM_PORT,
     MidiMessage,
     MIDI_CLOCK,
@@ -94,15 +93,6 @@ class RhythmNode(Node):
                 if self.pattern[self.step] == 1:
                     # ドラム音を再生
                     pyxel.play(0, 0)
-
-                    # MIDIメッセージを送信
-                    msg = MidiMessage(
-                        type="note_on",
-                        note=36,  # キックドラム
-                        velocity=127,
-                        channel=10,
-                    )
-                    self.midi_node.send_message(msg, SYNTH_PORT)
 
                 # 次のステップへ
                 self.step = (self.step + 1) % len(self.pattern)
